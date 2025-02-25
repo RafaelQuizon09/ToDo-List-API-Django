@@ -8,6 +8,8 @@ from .serializer import TodosSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.decorators import api_view, permission_classes
 # Create your views here.
 
 @api_view(['GET'])
@@ -15,18 +17,29 @@ def getUser (request):
     users = Users.objects.all()
     serializer = UserSerializer(users, many=True)
     return Response(serializer.data)
+@api_view(['GET'])
+def getUserByID (request, user_id):
+    try:
+        user = Users.objects.get(id=user_id)
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+    except Users.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def getTodo(request):
     user_id = request.query_params.get('userID', None)  # Get userID from query parameters
     if user_id is not None:
         todo = Todos.objects.filter(userID=user_id)  # Filter todos by userID
     else:
         todo = Todos.objects.all()  # Return all todos if no userID is provided
+
     serializer = TodosSerializer(todo, many=True)
     return Response(serializer.data)
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def createUser(request):
     data = request.data
     data['password'] = make_password(data['password'])  # Hash the password before saving
@@ -37,6 +50,7 @@ def createUser(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def loginUser(request):
     email = request.data.get('email')
     password = request.data.get('password')
@@ -57,6 +71,7 @@ def loginUser(request):
     return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def createTodo(request):
     data = request.data
     serializer = TodosSerializer(data=data)
@@ -67,6 +82,7 @@ def createTodo(request):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def updateTodo(request):
     data = request.data
     todo_id = data.get('todoID')
@@ -83,6 +99,7 @@ def updateTodo(request):
 
 
 @api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
 def deleteTodo(request, todo_id):
     try:
         todo = Todos.objects.get(todoID=todo_id)
@@ -93,6 +110,7 @@ def deleteTodo(request, todo_id):
     return Response({"message": "Todo deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
 
 @api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
 def deleteUser(request, user_id):
     try:
         user = Users.objects.get(id=user_id)
